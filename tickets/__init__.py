@@ -32,18 +32,19 @@ def pools():
         )
 
 
-@app.route("/pool/<pool>", methods=["POST"])
-def acquire(pool):
-    if not pool:
-        return pools()
+@app.route("/pool", methods=["POST"])
+def acquire():
     count = max(1, int(request.args.get("count", 1)))
+    pool = request.args["pool"]
+    timestamp = int(time() * 1000)
     with sqlite3.connect(DB_FILENAME) as conn:
         cur = conn.cursor()
-        timestamp = int(time() * 1000)
         cur.execute(
-            "INSERT INTO tickets (pool, value, timestamp) VALUES (?, ? + 1, ?) ON CONFLICT (pool) DO UPDATE SET value = value + excluded.value - 1, timestamp = excluded.timestamp RETURNING value",
+            "INSERT INTO tickets (pool, value, timestamp) VALUES (?, ? + 1, ?) ON CONFLICT (pool) DO UPDATE SET value = value + excluded.value - 1, timestamp = excluded.timestamp RETURNING *",
             (pool, count, timestamp),
         )
-        value = cur.fetchone()[0]
+        result = cur.fetchone()
         conn.commit()
-    return jsonify(list(range(value - count, value)))
+    return jsonify(
+        dict(pool=result[0], start=result[1], count=count, timestamp=result[2])
+    )
