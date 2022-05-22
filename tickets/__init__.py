@@ -46,5 +46,5 @@ def acquire():
         result = cur.fetchone()
         conn.commit()
     return jsonify(
-        dict(pool=result[0], start=result[1], count=count, timestamp=result[2])
+        dict(pool=result[0], start=result[1] - count, count=count, timestamp=result[2])
     )
