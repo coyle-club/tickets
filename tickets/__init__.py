@@ -10,7 +10,7 @@ DB_FILENAME = os.environ.get("DB_FILENAME", "/var/lib/tickets/tickets.db")
 
 with sqlite3.connect(DB_FILENAME) as conn:
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS tickets (pool text, value integer, timestamp integer, UNIQUE(pool))"
+        "CREATE TABLE IF NOT EXISTS tickets (namespace text, pool text, value integer, timestamp integer, UNIQUE(namespace, pool))"
     )
     conn.commit()
 
@@ -19,32 +19,42 @@ metrics = PrometheusMetrics(app)
 
 
 @app.route("/pool")
-def pools():
+def namespaces():
     with sqlite3.connect(DB_FILENAME) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT pool, value, timestamp FROM tickets")
-        results = cur.fetchall()
+        cur.execute("SELECT DISTINCT namespace FROM tickets ORDER BY namespace ASC")
+        return jsonify([row[0] for row in cur.fetchall()])
+
+
+@app.route("/pool/<namespace>")
+def pools(namespace):
+    with sqlite3.connect(DB_FILENAME) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT pool, value, timestamp FROM tickets WHERE namespace = ? ORDER BY pool ASC",
+            (namespace,),
+        )
         return jsonify(
             [
-                dict(pool=result[0], value=result[1], timestamp=result[2])
-                for result in results
+                dict(pool=row[0], value=row[1], timestamp=row[2])
+                for row in cur.fetchall()
             ]
         )
 
 
-@app.route("/pool", methods=["POST"])
-def acquire():
+@app.route("/pool/<namespace>", methods=["POST"])
+def acquire(namespace):
     count = max(1, int(request.args.get("count", 1)))
     pool = request.args["pool"]
     timestamp = int(time() * 1000)
     with sqlite3.connect(DB_FILENAME) as conn:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO tickets (pool, value, timestamp) VALUES (?, ? + 1, ?) ON CONFLICT (pool) DO UPDATE SET value = value + excluded.value - 1, timestamp = excluded.timestamp RETURNING *",
-            (pool, count, timestamp),
+            "INSERT INTO tickets (namespace, pool, value, timestamp) VALUES (?, ?, ? + 1, ?) ON CONFLICT (namespace, pool) DO UPDATE SET value = value + excluded.value - 1, timestamp = excluded.timestamp RETURNING pool, value, timestamp",
+            (namespace, pool, count, timestamp),
         )
-        result = cur.fetchone()
+        row = cur.fetchone()
         conn.commit()
     return jsonify(
-        dict(pool=result[0], start=result[1] - count, count=count, timestamp=result[2])
+        dict(pool=row[0], start=row[1] - count, count=count, timestamp=row[2])
     )
