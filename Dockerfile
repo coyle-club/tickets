@@ -7,6 +7,6 @@ COPY setup.py /app/setup.py
 RUN pip install -e /app
 
 ENTRYPOINT ["/usr/local/bin/gunicorn"]
-CMD ["tickets:app"]
+CMD ["--access-logfile", "-", "tickets:app"]
 
 
