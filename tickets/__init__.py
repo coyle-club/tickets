@@ -1,4 +1,5 @@
 import aiosqlite
+import time
 from quart import Quart, request, jsonify
 from quart.json import JSONEncoder
 
@@ -46,8 +47,8 @@ async def acquire(namespace):
     async with aiosqlite.connect(app.config["DB"]) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "INSERT INTO tickets (namespace, pool, value, timestamp) VALUES (?, ?, ? + 1, unixepoch()) ON CONFLICT (namespace, pool) DO UPDATE SET value = value + excluded.value - 1, timestamp = excluded.timestamp RETURNING pool, value, timestamp",
-            (namespace, pool, count),
+            "INSERT INTO tickets (namespace, pool, value, timestamp) VALUES (?, ?, ? + 1, ?) ON CONFLICT (namespace, pool) DO UPDATE SET value = value + excluded.value - 1, timestamp = excluded.timestamp RETURNING pool, value, timestamp",
+            (namespace, pool, count, int(time.time())),
         ) as cursor:
             result = await cursor.fetchone()
             await db.commit()
