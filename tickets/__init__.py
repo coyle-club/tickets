@@ -1,60 +1,80 @@
-from flask import Flask, request, jsonify
-import click
-import sqlite3
-from time import time
-import json
-import os
-from prometheus_flask_exporter import PrometheusMetrics
-
-DB_FILENAME = os.environ.get("DB_FILENAME", "/var/lib/tickets/tickets.db")
-
-with sqlite3.connect(DB_FILENAME) as conn:
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS tickets (namespace text, pool text, value integer, timestamp integer, UNIQUE(namespace, pool))"
-    )
-    conn.commit()
-
-app = Flask("tickets")
-metrics = PrometheusMetrics(app)
+import aiosqlite
+from quart import Quart, request, jsonify
+from quart.json import JSONEncoder
 
 
-@app.route("/pool")
-def namespaces():
-    with sqlite3.connect(DB_FILENAME) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT DISTINCT namespace FROM tickets ORDER BY namespace ASC")
-        return jsonify([row[0] for row in cur.fetchall()])
+class JSONEncoderSQL(JSONEncoder):
+    def default(self, object_):
+        if isinstance(object_, aiosqlite.Row):
+            return {key: object_[key] for key in object_.keys()}
+        return super().default(object_)
 
 
-@app.route("/pool/<namespace>")
-def pools(namespace):
-    with sqlite3.connect(DB_FILENAME) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT pool, value, timestamp FROM tickets WHERE namespace = ? ORDER BY pool ASC",
-            (namespace,),
-        )
+app = Quart("tickets")
+app.config.from_mapping(DB="/var/lib/tickets/tickets.db")
+app.config.from_prefixed_env("TICKETS_")
+app.json_encoder = JSONEncoderSQL
+
+
+@app.route("/namespace")
+async def namespaces():
+    async with aiosqlite.connect(app.config["DB"]) as db:
+        async with db.execute(
+            "SELECT DISTINCT namespace FROM tickets ORDER BY namespace ASC"
+        ) as cursor:
+            return jsonify([row[0] for row in await cursor.fetchall()])
+
+
+@app.route("/namespace/<namespace>")
+async def pools(namespace):
+    async with aiosqlite.connect(app.config["DB"]) as db:
+        db.row_factory = aiosqlite.Row
         return jsonify(
-            [
-                dict(pool=row[0], value=row[1], timestamp=row[2])
-                for row in cur.fetchall()
-            ]
+            await db.execute_fetchall(
+                "SELECT pool, value, timestamp FROM tickets WHERE namespace = ? ORDER BY pool ASC",
+                (namespace,),
+            )
         )
 
 
-@app.route("/pool/<namespace>", methods=["POST"])
-def acquire(namespace):
+@app.route("/namespace/<namespace>", methods=["POST"])
+async def acquire(namespace):
     count = max(1, int(request.args.get("count", 1)))
-    pool = request.args["pool"]
-    timestamp = int(time() * 1000)
-    with sqlite3.connect(DB_FILENAME) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO tickets (namespace, pool, value, timestamp) VALUES (?, ?, ? + 1, ?) ON CONFLICT (namespace, pool) DO UPDATE SET value = value + excluded.value - 1, timestamp = excluded.timestamp RETURNING pool, value, timestamp",
-            (namespace, pool, count, timestamp),
+    pool = request.args.get("pool")
+    if not pool:
+        return "Missing pool arg", 400
+    async with aiosqlite.connect(app.config["DB"]) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "INSERT INTO tickets (namespace, pool, value, timestamp) VALUES (?, ?, ? + 1, unixepoch()) ON CONFLICT (namespace, pool) DO UPDATE SET value = value + excluded.value - 1, timestamp = excluded.timestamp RETURNING pool, value, timestamp",
+            (namespace, pool, count),
+        ) as cursor:
+            result = await cursor.fetchone()
+            await db.commit()
+            return jsonify(
+                dict(
+                    namespace=namespace,
+                    pool=result["pool"],
+                    start=result["value"] - count,
+                    end=result["value"],
+                    timestamp=result["timestamp"],
+                )
+            )
+
+
+@app.route("/init")
+async def init():
+    async with aiosqlite.connect(app.config["DB"]) as conn:
+        await conn.execute(
+            "CREATE TABLE IF NOT EXISTS tickets (namespace text, pool text, value integer, timestamp integer, UNIQUE(namespace, pool))"
         )
-        row = cur.fetchone()
-        conn.commit()
-    return jsonify(
-        dict(pool=row[0], start=row[1] - count, count=count, timestamp=row[2])
-    )
+        await conn.commit()
+    return jsonify("OK")
+
+
+def main():
+    app.run()
+
+
+if __name__ == "__main__":
+    main()

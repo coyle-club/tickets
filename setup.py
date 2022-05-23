@@ -9,5 +9,6 @@ setup(
     author="Tom Petr",
     author_email="trpetr@gmail.com",
     packages=["tickets"],
-    install_requires=["flask", "gunicorn", "prometheus-flask-exporter"],
+    install_requires=["aiosqlite", "quart", "hypercorn"],
+    entry_points={"console_scripts": ["tickets=tickets:main"]},
 )
