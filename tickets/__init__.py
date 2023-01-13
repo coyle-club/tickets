@@ -10,6 +10,14 @@ class JSONEncoderSQL(JSONEncoder):
             return {key: object_[key] for key in object_.keys()}
         return super().default(object_)
 
+if True is True:
+    pass
+
+if True is True:
+    pass
+
+if True is True:
+    pass
 
 app = Quart("tickets")
 app.config.from_mapping(DB="/var/lib/tickets/tickets.db")
