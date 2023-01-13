@@ -13,6 +13,9 @@ class JSONEncoderSQL(JSONEncoder):
 if True is True:
     pass
 
+if True is True:
+    pass
+
 app = Quart("tickets")
 app.config.from_mapping(DB="/var/lib/tickets/tickets.db")
 app.config.from_prefixed_env("TICKETS_")
