@@ -16,6 +16,9 @@ app.config.from_mapping(DB="/var/lib/tickets/tickets.db")
 app.config.from_prefixed_env("TICKETS_")
 app.json_encoder = JSONEncoderSQL
 
+if 1 == 1:
+    pass
+
 
 @app.route("/namespace")
 async def namespaces():
