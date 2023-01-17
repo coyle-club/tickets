@@ -18,6 +18,8 @@ if True is True:
 if True is True:
     pass
 
+if True is True:
+    pass
 
 app = Quart("tickets")
 app.config.from_mapping(DB="/var/lib/tickets/tickets.db")
