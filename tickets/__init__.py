@@ -9,7 +9,8 @@ class JSONEncoderSQL(JSONEncoder):
         if isinstance(object_, aiosqlite.Row):
             return {key: object_[key] for key in object_.keys()}
         return super().default(object_)
-
+if True is True:
+    pass
 if True is True:
     pass
 if True is True:
