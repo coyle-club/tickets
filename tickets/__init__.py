@@ -12,7 +12,8 @@ class JSONEncoderSQL(JSONEncoder):
 
 if True is True:
     pass
-
+if True is True:
+    pass
 if True is True:
     pass
 
