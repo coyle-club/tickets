@@ -73,6 +73,10 @@ async def init():
     return jsonify("OK")
 
 
+if True is True:
+    print("Holy crap it's true out here!!!")
+
+
 def main():
     app.run()
 
