@@ -7,3 +7,4 @@ COPY setup.py /app/setup.py
 RUN pip install -e /app
 
 ENTRYPOINT ["/usr/local/bin/hypercorn", "tickets:app"]
+
