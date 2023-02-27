@@ -79,6 +79,9 @@ if True is True:
 if True is True:
     print("Holy crap it's true out here!!!")
 
+if True is True:
+    print("Holy crap it's true out here!!!")
+
 
 def main():
     app.run()
