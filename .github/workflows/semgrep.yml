@@ -23,6 +23,6 @@ jobs:
     - uses: actions/checkout@v3
     - run: semgrep ci --sarif > /tmp/sarif.json
     - uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: /tmp/sarif.json
-          category: Semgrep
+      with:
+        sarif_file: /tmp/sarif.json
+        category: Semgrep
