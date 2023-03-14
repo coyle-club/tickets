@@ -22,5 +22,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: semgrep ci --sarif > /tmp/sarif.json
-    - run: gzip /tmp/sarif.json | base64 -w0 > /tmp/sarif.gz.b64
-    - run: ls -lah /tmp && cat /tmp/sarif.gz.b64
+    - uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: /tmp/sarif.json
+          category: Semgrep
