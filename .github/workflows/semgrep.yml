@@ -21,4 +21,6 @@ jobs:
       image: returntocorp/semgrep
     steps:
     - uses: actions/checkout@v3
-    - run: semgrep ci --sarif
+    - run: semgrep ci --sarif > sarif.json
+    - run: gzip sarif.json | base64 -w0 > sarif.gz.b64
+    - run: cat sarif.gz.b64
